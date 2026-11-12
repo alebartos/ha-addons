@@ -1,0 +1,45 @@
+name: Aggiorna versione Authelia
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confronta versioni
+        id: ver
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh api repos/authelia/authelia/releases/latest -q .tag_name | sed 's/^v//')
+          current=$(sed -n 's/^version: "\(.*\)"/\1/p' authelia/config.yaml)
+          echo "latest=$latest current=$current"
+          if ! echo "$latest" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Versione non valida: $latest"; exit 1
+          fi
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+
+      - name: Aggiorna file
+        if: steps.ver.outputs.latest != steps.ver.outputs.current
+        env:
+          NEW: ${{ steps.ver.outputs.latest }}
+        run: |
+          docker manifest inspect "authelia/authelia:$NEW" > /dev/null
+          sed -i "s/^version: \".*\"/version: \"$NEW\"/" authelia/config.yaml
+          sed -i "s|^FROM authelia/authelia:.*|FROM authelia/authelia:$NEW|" authelia/Dockerfile
+          { echo "# Changelog"; echo; echo "## $NEW"; echo
+            echo "https://github.com/authelia/authelia/releases/tag/v$NEW"
+            tail -n +2 authelia/CHANGELOG.md; } > /tmp/cl && mv /tmp/cl authelia/CHANGELOG.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "authelia: $NEW"
+          git push
