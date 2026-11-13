@@ -1,5 +1,7 @@
 # ha-addons
 
+> **English summary.** Home Assistant add-on repository. It currently ships an Authelia (SSO) add-on built on the official image, whose version is bumped automatically every day by a GitHub Actions workflow.
+
 Repository di add-on per Home Assistant.
 
 Aggiungi in Home Assistant: Impostazioni → Add-on → Store → ⋮ → Repository →
